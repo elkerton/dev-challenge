@@ -7,6 +7,7 @@ using Whois.NET;
 using Microsoft.EntityFrameworkCore;
 using DnsClient;
 using System.IO;
+using Desafio.Umbler.Entities;
 
 namespace Desafio.Umbler.Controllers
 {
@@ -14,6 +15,7 @@ namespace Desafio.Umbler.Controllers
     public class DomainController : Controller
     {
         private readonly DatabaseContext _db;
+        public Domain _domain;
 
         public DomainController(DatabaseContext db)
         {
@@ -22,29 +24,25 @@ namespace Desafio.Umbler.Controllers
 
         [HttpGet, Route("domain/{domainName}")]
         public async Task<IActionResult> Get(string domainName)
-        {
-
-            if (String.IsNullOrEmpty(domainName) || !Domain.isValid(domainName)) return BadRequest();
-
-            var domain = new Domain();
-
+        { 
             try
             {
+                _domain = new Domain(domainName);
 
-                domain = await _db.Domains.FirstOrDefaultAsync(d => d.Name == domainName);
+                _domain = await _db.Domains.FirstOrDefaultAsync(d => d.Name == domainName);
 
-                if (domain == null)
+                if (_domain == null)
                 {
-                     domain = await this.SearchDomain(domainName);
+                    _domain = await this.SearchDomain(domainName);
 
-                    _db.Domains.Add(domain);
+                    _db.Domains.Add(_domain);
                 }
 
-                if (DateTime.Now.Subtract(domain.UpdatedAt).TotalMinutes > domain.Ttl)
+                if (DateTime.Now.Subtract(_domain.UpdatedAt).TotalMinutes > _domain.Ttl)
                 {
-                    domain = await this.SearchDomain(domainName);
+                    _domain = await this.SearchDomain(domainName);
 
-                    _db.Domains.Update(domain);
+                    _db.Domains.Update(_domain);
 
                 }
 
@@ -57,11 +55,11 @@ namespace Desafio.Umbler.Controllers
 
             var responseBody = new
             {
-                Name = domain.Name,
-                Ip = domain.Ip,
-                HostedAt = domain.HostedAt,
-                WhoIs = domain.WhoIs,
-                NsRecords = domain.GetNsList()
+                Name = _domain.Name,
+                Ip = _domain.Ip,
+                HostedAt = _domain.HostedAt,
+                WhoIs = _domain.WhoIs,
+                NsRecords = _domain.GetNsList()
             };
 
             return Ok(responseBody);
@@ -79,7 +77,13 @@ namespace Desafio.Umbler.Controllers
                 var result = await lookup.QueryAsync(domainName, QueryType.A);
                 var resultNS = await lookup.QueryAsync(domainName, QueryType.NS);
 
-                domain = new Domain(domainName, result, resultNS, response.Raw);
+                domain = new Domain(domainName);
+
+                domain.SetARecords(result);
+
+                domain.SetNsRecords(resultNS);
+
+                domain.SetWhois(response.Raw);
 
                 var hostResponse = await WhoisClient.QueryAsync(domain.Ip);
 
