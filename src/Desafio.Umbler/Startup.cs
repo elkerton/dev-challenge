@@ -1,4 +1,5 @@
 ﻿using Desafio.Umbler.Models;
+using Desafio.Umbler.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,7 @@ namespace Desafio.Umbler
                 options.UseMySql(Configuration.GetConnectionString("DefaultConnection")));
 
             services.AddControllersWithViews();
+            services.AddSingleton<DomainService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

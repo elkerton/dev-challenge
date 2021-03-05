@@ -78,7 +78,7 @@ class DOMManager {
     }
 
     fillDataDomain(domain) {
-        domain.nsRecords.forEach((nr, i) => {
+        domain.nsList.forEach((nr, i) => {
             var template = `<label for="dns-show" class="col-xs-2 col-form-label">DNS ${i + 1}</label>
                             <div class="col-xs-10">
                             <p class="form-control" id="dns-show">${nr}</p>
@@ -171,6 +171,7 @@ class App {
 
 class Domain {
     constructor(response) {
+        console.log(response)
         if (typeof response === 'undefined') {
             throw new Error('Cannot be called directly');
         }
@@ -180,7 +181,7 @@ class Domain {
             this.ip = response.request.ip;
             this.host = response.request.hostedAt;
             this.whois = response.request.whoIs;
-            this.nsRecords = response.request.nsRecords;
+            this.nsList = response.request.nsList;
             this.success = response.success;
         }
 

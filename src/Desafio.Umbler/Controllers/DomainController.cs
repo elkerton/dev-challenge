@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Desafio.Umbler.Models;
@@ -6,6 +8,7 @@ using Whois.NET;
 using Microsoft.EntityFrameworkCore;
 using DnsClient;
 using Desafio.Umbler.Entities;
+using Desafio.Umbler.Services;
 
 namespace Desafio.Umbler.Controllers
 {
@@ -13,32 +16,32 @@ namespace Desafio.Umbler.Controllers
     public class DomainController : Controller
     {
         private readonly DatabaseContext _db;
-        public Domain _domain;
+        private Domain _domain;
+        private DomainService _domainService;
 
-        public DomainController(DatabaseContext db)
+        public DomainController(DatabaseContext db, DomainService domainService)
         {
             _db = db;
+            _domainService = domainService;
         }
 
         [HttpGet, Route("domain/{domainName}")]
         public async Task<IActionResult> Get(string domainName)
-        { 
+        {
             try
             {
-                _domain = new Domain(domainName);
-
                 _domain = await _db.Domains.FirstOrDefaultAsync(d => d.Name == domainName);
 
                 if (_domain == null)
                 {
-                    _domain = await this.SearchDomain(domainName);
+                    _domain = await _domainService.SearchDomain(domainName);
 
                     _db.Domains.Add(_domain);
                 }
 
-                if (DateTime.Now.Subtract(_domain.UpdatedAt).TotalMinutes > _domain.Ttl)
+                if (!_domain.IsUpdated())
                 {
-                    _domain = await this.SearchDomain(domainName);
+                    _domain = await _domainService.SearchDomain(domainName);
 
                     _db.Domains.Update(_domain);
 
@@ -47,54 +50,13 @@ namespace Desafio.Umbler.Controllers
                 await _db.SaveChangesAsync();
             }
             catch (Exception e)
-            {   
+            {
                 throw e;
             }
 
-            var responseBody = new
-            {
-                Name = _domain.Name,
-                Ip = _domain.Ip,
-                HostedAt = _domain.HostedAt,
-                WhoIs = _domain.WhoIs,
-                NsRecords = _domain.GetNsList()
-            };
+            var domainResponse = new DomainResponse(_domain);
 
-            return Ok(responseBody);
-        }
-
-        public async Task<Domain> SearchDomain(string domainName)
-        {
-            var domain = new Domain();
-
-            try
-            {
-                var response = await WhoisClient.QueryAsync(domainName);
-
-                var lookup = new LookupClient();
-                var result = await lookup.QueryAsync(domainName, QueryType.A);
-                var resultNS = await lookup.QueryAsync(domainName, QueryType.NS);
-
-                domain = new Domain(domainName);
-
-                domain.SetARecords(result);
-
-                domain.SetNsRecords(resultNS);
-
-                domain.SetWhois(response.Raw);
-
-                var hostResponse = await WhoisClient.QueryAsync(domain.Ip);
-
-                domain.HostedAt = hostResponse.OrganizationName;
-                domain.UpdatedAt = DateTime.Now;
-
-                return domain;
-            }
-            catch (Exception e)
-            {
-
-                throw e;
-            }
+            return Ok(domainResponse);
         }
     }
 }
