@@ -6,6 +6,8 @@ using Desafio.Umbler.Models;
 using Whois.NET;
 using Microsoft.EntityFrameworkCore;
 using DnsClient;
+using System.IO;
+using Desafio.Umbler.Entities;
 
 namespace Desafio.Umbler.Controllers
 {
@@ -13,6 +15,7 @@ namespace Desafio.Umbler.Controllers
     public class DomainController : Controller
     {
         private readonly DatabaseContext _db;
+        public Domain _domain;
 
         public DomainController(DatabaseContext db)
         {
@@ -21,57 +24,79 @@ namespace Desafio.Umbler.Controllers
 
         [HttpGet, Route("domain/{domainName}")]
         public async Task<IActionResult> Get(string domainName)
-        {
-            var domain = await _db.Domains.FirstOrDefaultAsync(d => d.Name == domainName);
-
-            if (domain == null)
+        { 
+            try
             {
-                var response = await WhoisClient.QueryAsync(domainName);
+                _domain = new Domain(domainName);
 
-                var lookup = new LookupClient();
-                var result = await lookup.QueryAsync(domainName, QueryType.ANY);
-                var record = result.Answers.ARecords().FirstOrDefault();
-                var address = record?.Address;
-                var ip = address?.ToString();
+                _domain = await _db.Domains.FirstOrDefaultAsync(d => d.Name == domainName);
 
-                var hostResponse = await WhoisClient.QueryAsync(ip);
-
-                domain = new Domain
+                if (_domain == null)
                 {
-                    Name = domainName,
-                    Ip = ip,
-                    UpdatedAt = DateTime.Now,
-                    WhoIs = response.Raw,
-                    Ttl = record?.TimeToLive ?? 0,
-                    HostedAt = hostResponse.OrganizationName
-                };
+                    _domain = await this.SearchDomain(domainName);
 
-                _db.Domains.Add(domain);
+                    _db.Domains.Add(_domain);
+                }
+
+                if (DateTime.Now.Subtract(_domain.UpdatedAt).TotalMinutes > _domain.Ttl)
+                {
+                    _domain = await this.SearchDomain(domainName);
+
+                    _db.Domains.Update(_domain);
+
+                }
+
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {   
+                throw e;
             }
 
-            if (DateTime.Now.Subtract(domain.UpdatedAt).TotalMinutes > domain.Ttl)
+            var responseBody = new
+            {
+                Name = _domain.Name,
+                Ip = _domain.Ip,
+                HostedAt = _domain.HostedAt,
+                WhoIs = _domain.WhoIs,
+                NsRecords = _domain.GetNsList()
+            };
+
+            return Ok(responseBody);
+        }
+
+        public async Task<Domain> SearchDomain(string domainName)
+        {
+            var domain = new Domain();
+
+            try
             {
                 var response = await WhoisClient.QueryAsync(domainName);
 
                 var lookup = new LookupClient();
-                var result = await lookup.QueryAsync(domainName, QueryType.ANY);
-                var record = result.Answers.ARecords().FirstOrDefault();
-                var address = record?.Address;
-                var ip = address?.ToString();
+                var result = await lookup.QueryAsync(domainName, QueryType.A);
+                var resultNS = await lookup.QueryAsync(domainName, QueryType.NS);
 
-                var hostResponse = await WhoisClient.QueryAsync(ip);
+                domain = new Domain(domainName);
 
-                domain.Name = domainName;
-                domain.Ip = ip;
-                domain.UpdatedAt = DateTime.Now;
-                domain.WhoIs = response.Raw;
-                domain.Ttl = record?.TimeToLive ?? 0;
+                domain.SetARecords(result);
+
+                domain.SetNsRecords(resultNS);
+
+                domain.SetWhois(response.Raw);
+
+                var hostResponse = await WhoisClient.QueryAsync(domain.Ip);
+
                 domain.HostedAt = hostResponse.OrganizationName;
+                domain.UpdatedAt = DateTime.Now;
+
+                return domain;
             }
+            catch (Exception e)
+            {
 
-            await _db.SaveChangesAsync();
-
-            return Ok(domain);
+                throw e;
+            }
         }
     }
 }
