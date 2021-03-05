@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Desafio.Umbler.Models;
 using Whois.NET;
 using Microsoft.EntityFrameworkCore;
 using DnsClient;
-using System.IO;
 using Desafio.Umbler.Entities;
 
 namespace Desafio.Umbler.Controllers

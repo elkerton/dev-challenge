@@ -1,10 +1,7 @@
 ﻿using Desafio.Umbler.Test._Builders;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using Bogus;
 using Desafio.Umbler.Entities;
-using DnsClient;
 using ExpectedObjects;
 using Xunit;
 using Xunit.Abstractions;

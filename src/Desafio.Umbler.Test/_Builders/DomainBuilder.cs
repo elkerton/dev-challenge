@@ -1,7 +1,5 @@
 ﻿using Desafio.Umbler.Entities;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using Bogus;
 
 namespace Desafio.Umbler.Test._Builders

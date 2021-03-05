@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Desafio.Umbler.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace Desafio.Umbler.Controllers
 {
